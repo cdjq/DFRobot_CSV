@@ -7,40 +7,40 @@ int DFRobot_CSV::csvFileWrite(File *fp, const void *src, size_t src_size, unsign
     return 0;
 
   if (fp->write(quote) == false)
-    return false;
+    return -1;
 
   while (src_size) {
     if (*csrc == quote) {
       if (fp->write(quote) == false)
-        return false;
+        return -1;
     }
     if (fp->write(*csrc) == false)
-      return false;
+      return -1;
     src_size--;
     csrc++;
   }
 
   if (fp->write(quote) == false) {
-    return false;
+    return -1;
   }
 
   return 0;
 }
 
-static void cb1 (void *s, size_t i, void *outfile) 
+static void cbAftFieldWriFile (void *s, size_t i, void *outfile) 
 {
   csv_fwrite((File *)outfile, s, i);
   ((File *)outfile)->write(",");
 }
 
-static void cb2 (int c, void *outfile) 
+static void cbAftRowWriFile (int c, void *outfile) 
 {
   ((File *)outfile)->seek(((File *)outfile)->position()-1);
   ((File *)outfile)->write("\n");
 }
 
 
-int DFRobot_CSV::fileTofile(const char *fileIn, const char *fileOut) 
+int DFRobot_CSV::fileToFile(const char *fileIn, const char *fileOut) 
 {
     size_t i;
     uint16_t size;
@@ -61,7 +61,7 @@ int DFRobot_CSV::fileTofile(const char *fileIn, const char *fileOut)
         myFile.close();
         myFile = SD.open("fileOut.txt",O_CREAT|O_WRITE|O_APPEND);
         outfile = (void *)&myFile;
-        if(csv_parse(&p,readBuf,temp,cb1,cb2,outfile)!=temp)
+        if(csv_parse(&p,readBuf,temp,cbAftFieldWriFile,cbAftRowWriFile,outfile)!=temp)
           Serial.println("error in csv_parse");
         myFile.close();
         myFile = SD.open("fileIn.txt");
@@ -71,7 +71,7 @@ int DFRobot_CSV::fileTofile(const char *fileIn, const char *fileOut)
     myFile.close();
     myFile = SD.open("fileOut.txt",O_WRITE|O_APPEND);
     outfile = (void *)&myFile;
-    csv_fini(&p,cb1,cb2,outfile);   
+    csv_fini(&p,cbAftFieldWriFile,cbAftRowWriFile,outfile);   
     // close the file:
     myFile.close();
 //    csv_free(&p);
@@ -79,23 +79,26 @@ int DFRobot_CSV::fileTofile(const char *fileIn, const char *fileOut)
 }
 
 
-File myFile;
+
 struct counts {
 long unsigned fields;
 long unsigned rows;
 };
-void cb1 (void *s, size_t len, void *data) {
-((struct counts *)data)->fields++; }
-void cb2 (int c, void *data) {
-((struct counts *)data)->rows++; }
-uint8_t readBuf[512] = {0};
+static void cbAftFieldCountField (void *s, size_t len, void *data) 
+{
+((struct counts *)data)->fields++; 
+}
+static void cbAftRowCountRow (int c, void *data) 
+{
+((struct counts *)data)->rows++; 
+}
+
 struct counts c = {0};
 void setup() {
      struct csv_parser p;
      uint32_t size;   
-  // Open serial communications and wait for port to open:
-  Serial.begin(115200);
-
+    uint8_t readBuf[512] = {0};
+	struct counts c = {0};
   Serial.print("Initializing SD card...");
 
   if (!SD.begin(32)) {
@@ -123,11 +126,11 @@ void setup() {
       myFile.read(readBuf,temp);
       for(uint8_t i=0;i<20;i++)
       Serial.write(readBuf[i]);Serial.println();
-      if(csv_parse(&p,readBuf,temp,cb1,cb2,&c)!=temp)
+      if(csv_parse(&p,readBuf,temp,cbAftFieldCountField,cbAftRowCountRow,&c)!=temp)
         Serial.println("error in csv_parse");   
       size -= temp;
     }
-    csv_fini(&p,cb1,cb2,&c);     
+    csv_fini(&p,cbAftFieldCountField,cbAftRowCountRow,&c);     
     // close the file:
     myFile.close();
     Serial.print("fields: ");Serial.println(c.fields);
@@ -135,3 +138,84 @@ void setup() {
 //    csv_free(&p);
     Serial.println("okkkkkkkkkkkkkkkk");
 }
+
+File myFile;
+
+static void cb1 (void *s, size_t i, void *outfile) {
+  csv_fwrite((File *)outfile, s, i);
+  ((File *)outfile)->write(",");
+}
+
+static void cb2 (int c, void *outfile) {
+  ((File *)outfile)->seek(((File *)outfile)->position()-1);
+  ((File *)outfile)->write("\n");
+}
+
+int DFRobot_CSV::writeCSV(const char *csv, const char *fileName) 
+{
+    size_t i;
+    uint16_t size;
+    struct csv_parser p;
+    void  *outfile;
+    uint16_t pt = 0;
+    csv_init(&p,0);
+    SD.begin(32);
+    myFile = SD.open(fileName,O_CREAT|O_WRITE|O_APPEND);
+    outfile = (void *)&myFile;
+    size = strlen(csv);
+    if(csv_parse(&p,csv,size,cb1,cb2,outfile)!=size)
+            Serial.println("error in csv_parse");
+   
+    csv_fini(&p,cb1,cb2,outfile);   
+    // close the file:
+    myFile.close();
+//    csv_free(&p);
+    Serial.println("okkkkkkkkkkkkkkkk");
+	return 0;
+}
+
+
+static void cb1 (void *s, size_t i, void *outfile) {
+  csv_fwrite((File *)outfile, s, i);
+  ((File *)outfile)->write(",");
+}
+
+static void cb2 (int c, void *outfile) {
+  ((File *)outfile)->seek(((File *)outfile)->position()-1);
+  ((File *)outfile)->write("\n");
+}
+
+int DFRobot_CSV::readCSV(char *buf, const char *fileName)
+{
+	size_t i;
+    uint16_t size;
+    struct csv_parser p;
+    void  *outfile;
+    uint16_t pt = 0;
+    csv_init(&p,0);
+    SD.begin(32);
+    myFile = SD.open(fileName);
+	outfile = (void *)&myFile;
+    size = myFile.size();
+    while(size) {
+        uint16_t temp;
+        if(size>512) temp = 512;
+        else temp = size;
+        myFile.read(readBuf,temp);
+        if(csv_parse(&p,readBuf,temp,cbAftFieldWriFile,cbAftRowWriFile,outfile)!=temp)
+          Serial.println("error in csv_parse");
+        myFile.seek(pt+=temp);
+        size -= temp;
+    }
+    csv_fini(&p,cbAftFieldWriFile,cbAftRowWriFile,outfile);   
+    // close the file:
+    myFile.close();
+//	csv_free(&p);
+    Serial.println("okkkkkkkkkkkkkkkk");
+	return 0;
+}
+
+
+
+
+
