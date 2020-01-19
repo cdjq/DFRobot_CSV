@@ -4,7 +4,10 @@
 #include <stdio.h>
 #include <UD.h>
 
-
+#ifdef __cplusplus
+extern "C" {
+#endif	
+	
 #define CSV_MAJOR 3
 #define CSV_MINOR 0
 #define CSV_RELEASE 3
@@ -79,6 +82,8 @@ void csv_set_free_func(struct csv_parser *p, void (*)(void *));
 void csv_set_blk_size(struct csv_parser *p, size_t);
 size_t csv_get_buffer_size(const struct csv_parser *p);
 
-
+#ifdef __cplusplus
+}
+#endif
 
 #endif

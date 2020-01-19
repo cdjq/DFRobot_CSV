@@ -1,4 +1,24 @@
 #include <DFRobot_CSV.h>
+
+
+DFRobot_CSV::DFRobot_CSV()
+{
+	csv_init(&_p,0);
+}
+
+
+
+DFRobot_CSV::DFRobot_CSV(uint8_t option = 0)
+{
+	csv_init(&_p,option);
+}
+
+DFRobot_CSV::~DFRobot_CSV()
+{
+	if(p->entry_buf)
+		p->free_func(p->entry_buf);
+}
+
 int DFRobot_CSV::csvFileWrite(File *fp, const void *src, size_t src_size, unsigned char quote)
 {
   const unsigned char *csrc = (const unsigned char *)src;
@@ -60,7 +80,7 @@ int DFRobot_CSV::fileToFile(const char *fileIn, const char *fileOut)
         myFile.read(readBuf,temp);
         myFile.close();
         myFile = SD.open("fileOut.txt",O_CREAT|O_WRITE|O_APPEND);
-        outfile = (void *)&myFile;
+        outfile = (void *)&myFile;     
         if(csv_parse(&p,readBuf,temp,cbAftFieldWriFile,cbAftRowWriFile,outfile)!=temp)
           Serial.println("error in csv_parse");
         myFile.close();
