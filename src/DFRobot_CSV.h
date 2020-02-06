@@ -1,70 +1,26 @@
 #include "csv.h"
-#include "Steam.h"
+#include "UD.h"
 
 #ifndef DFRobot_CSV_H
 #define DFRobot_CSV_H
 
-class DFRobot_CSV::public Stream 
+class DFRobot_CSV
 {
 public:
   DFRobot_CSV();
   DFRobot_CSV(uint8_t option);
   ~DFRobot_CSV();
-  int csvFileWrite(File *fp, const void *src, size_t src_size, unsigned char quote);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  int convert(const char *fileIn, const char *fileOut);
+  int count(const char *fileName, void * field, void * row);
+  int write(const char *fileName, const char *csv) 
+  int read(const char *fileName, void *des)
+  int readRow(const char *fileName, uint16_t row, void *des)
 
 private:
-  static struct csv_parser _p;
+  typedef struct csv_parser sCSVParse_t;
+  sCSVParse_t _p;
 };
 
-typedef struct csv_parser sCsvPar_t;
-
-sCsvPar_t DFRobot_CSV::_p = {
-	.entry_buf = NULL;
-    .pstate = ROW_NOT_BEGUN;
-    .quoted = 0;
-    .spaces = 0;
-    .entry_pos = 0;
-    .entry_size = 0;
-    .status = 0;
-    .options = options;
-    .quote_char = CSV_QUOTE;
-    .delim_char = CSV_COMMA;
-    .is_space = NULL;
-    .is_term = NULL;
-    .blk_size = MEM_BLK_SIZE;
-    .malloc_func = NULL;
-    .realloc_func = realloc;
-    .free_func = free;
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
+extern DFRobot_CSV csv;
 
 #endif
