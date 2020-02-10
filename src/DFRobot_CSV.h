@@ -20,7 +20,7 @@ private:
   typedef struct csv_parser sCSVParse_t;
   sCSVParse_t _p;
   T * _file;
-  int csvFileWrite(T *fp, const void *src, size_t src_size, unsigned char quote)
+  int csvFileWrite(T *fp, const void *src, size_t src_size, unsigned char quote);
 };
 
 #endif

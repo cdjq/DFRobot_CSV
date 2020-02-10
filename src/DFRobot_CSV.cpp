@@ -140,8 +140,6 @@ int DFRobot_CSV<T>::writeCSV(const char *fileName, const char *csv)
     void  *outFile;
 	File myFile;
     uint16_t pt = 0;
-    SD.begin(32);
-    myFile = SD.open(fileName,O_CREAT|O_WRITE|O_APPEND);
     outFile = (void *)&myFile;
     size = strlen(csv);
     if(csv_parse(&_p,csv,size,cbWriteField,cbWriteLine,outFile)!=size) {
