@@ -1,23 +1,21 @@
 #include <DFRobot_CSV.h>
 
-
-DFRobot_CSV::DFRobot_CSV()
+template <class T>
+DFRobot_CSV<T>::DFRobot_CSV(T &file)
 {
 	csv_init(&_p,0);
+	_file = &file;
 }
 
-DFRobot_CSV::DFRobot_CSV(uint8_t option = 0)
-{
-	csv_init(&_p,option);
-}
-
-DFRobot_CSV::~DFRobot_CSV()
+template <class T>
+DFRobot_CSV<T>::~DFRobot_CSV()
 {
 	if(_p->entry_buf)
 		_p->free_func(_p->entry_buf);
 }
 
-static int DFRobot_CSV::csvFileWrite(File *fp, const void *src, size_t src_size, unsigned char quote)
+template <class T>
+int DFRobot_CSV<T>::csvFileWrite(T *fp, const void *src, size_t src_size, unsigned char quote)
 {
   const unsigned char *csrc = (const unsigned char *)src;
 
@@ -45,63 +43,37 @@ static int DFRobot_CSV::csvFileWrite(File *fp, const void *src, size_t src_size,
   return 0;
 }
 
-static void cbAftFieldWriFile (void *s, size_t i, void *outFile) 
+static void cbWrite(void *s, size_t i, void *) 
 {
-  csvFileWrite((File *)outFile, s, i, CSV_QUOTE);
-  ((File *)outFile)->write(",");
+  csvFileWrite(_file, s, i, CSV_QUOTE);
+  _file->write(",");
 }
 
-static void cbAftRowWriFile (int c, void *outFile) 
+static void cbWriteLine (int c, void *) 
 {
-  ((File *)outFile)->seek(((File *)outFile)->position()-1);
-  ((File *)outFile)->write("\n");
+  _file->seek(_file->position()-1);
+  _file->write("\n");
 }
 
-
-int DFRobot_CSV::convert(const char *fileIn, const char *fileOut) 
+template <class T>
+size_t DFRobot_CSV<T>::write(uint8_t val)
 {
-    size_t i;
-    uint16_t size;
-    void  *outFile; 
-    uint16_t pt = 0;
-    uint8_t readBuf[512] = {0};
-    File myFile;	
-    SD.begin(32);
-    myFile = SD.open(fileIn);
-    size = myFile.size();
-    while(size) {
-        uint16_t temp;
-        if(size>512) temp = 512;
-        else temp = size;
-        myFile.read(readBuf,temp);
-        myFile.close();
-        myFile = SD.open(fileOut,O_CREAT|O_WRITE|O_APPEND);
-        outFile = (void *)&myFile;
-        if(csv_parse(&_p,readBuf,temp,cbAftFieldWriFile,cbAftRowWriFile,outFile)!=temp) {
-           myFile.close();
-		   return -1;
-		}
-        myFile.close();
-        myFile = SD.open(fileIn);
-        myFile.seek(pt+=temp);
-        size -= temp;
-    }
-    myFile.close();
-    myFile = SD.open(fileOut,O_WRITE|O_APPEND);
-    outFile = (void *)&myFile;
-    csv_fini(&_p,cbAftFieldWriFile,cbAftRowWriFile,outFile);   
-    // close the file:
-    myFile.close();
-//    csv_free(&_p);
-    return 0;
+  return write(&val, 1);
 }
 
-
+template <class T>
+size_t DFRobot_CSV<T>::write(const uint8_t *buf, size_t size)
+{
+  size_t t;
+  csv_parse(&_p,buf,size,cbWrite,cbWriteLine,NULL);
+  return t;
+}
 
 struct counts {
 long unsigned fields;
-long unsigned rows;
+uint rows;
 };
+
 static void cbAftFieldCountField (void *s, size_t len, void *data) 
 {
 ((struct counts *)data)->fields++; 
@@ -111,50 +83,39 @@ static void cbAftRowCountRow (int c, void *data)
 ((struct counts *)data)->rows++; 
 }
 
-int DFRobot_CSV::count(const char *fileName, void * field, void * row)
+template <class T>
+int DFRobot_CSV<T>::count(uint16_t &row, uint16_t &field)
 {
   struct counts c = {0};
   uint32_t size;   
   uint8_t readBuf[512] = {0};
-  struct counts c = {0};
-  Serial.print("Initializing SD card...");
-
-  if (!SD.begin(32)) {
-    Serial.println("initialization failed!");
-    while (1);
-  }
-
-  // re-open the file for reading:
-   myFile = SD.open(fileName);
-
     // read from the file until there's nothing else in it:
-    while (myFile.available()) {
-      Serial.write(myFile.read());
+    while (_file->available()) {
+      Serial.write(_file->read());
     }
-   myFile.seek(0);
-   size = myFile.size();
+   _file->seek(0);
+   size = _file->size();
 //   Serial.print("a3.txt: Size="); Serial.println(size);
    csv_init(&_p,0);
    while(size) {
       uint16_t temp;
       if(size>512) temp = 512;
       else temp = size;
-      myFile.read(readBuf,temp);
+      _file->read(readBuf,temp);
       for(uint8_t i=0;i<20;i++)
       Serial.write(readBuf[i]);Serial.println();
       if(csv_parse(&_p,readBuf,temp,cbAftFieldCountField,cbAftRowCountRow,&c)!=temp) {
-        myFile.close();
+        _file->close();
 		return -1;
 	  }
       size -= temp;
     }
     csv_fini(&_p,cbAftFieldCountField,cbAftRowCountRow,&c);     
     // close the file:
-    myFile.close();
  //   Serial.print("fields: ");Serial.println(c.fields);
  //   Serial.print("rows: ");Serial.println(c.rows);
-    (uint32_t *)field = c.fields;
-	(uint32_t *)row = c.rows;
+    field = c.fields;
+	row = c.rows;
 //    csv_free(&_p);
 //    Serial.println("okkkkkkkkkkkkkkkk");
 	return 0;
@@ -171,7 +132,8 @@ static void writeLine (int c, void *outFile) {
   ((File *)outFile)->write("\n");
 }
 
-int DFRobot_CSV::writeCSV(const char *fileName, const char *csv) 
+template <class T>
+int DFRobot_CSV<T>::writeCSV(const char *fileName, const char *csv) 
 {
     size_t i;
     uint16_t size;
@@ -183,12 +145,12 @@ int DFRobot_CSV::writeCSV(const char *fileName, const char *csv)
     outFile = (void *)&myFile;
     size = strlen(csv);
     if(csv_parse(&_p,csv,size,cbWriteField,cbWriteLine,outFile)!=size) {
-		myFile.close();
+		_file->close();
 		return -1;
     }
     csv_fini(&_p,cb1,cb2,outFile);   
     // close the file:
-    myFile.close();
+    _file->close();
 //    csv_free(&_p);
 	return 0;
 }
@@ -207,35 +169,47 @@ static void cbReadAfterField(void *s, size_t i, void *des) {
 static void cbReadAfterRow(int c, void *des) {
   pos--;
   *((char *)des + pos) = CSV_LF;
+    if (event_ptr->event_type != CSV_COL)
+    fail_parser(test_name, "didn't expect a column");
+
+  /* Check the actual size against the expected size */
+  if (event_ptr->size != len)
+    fail_parser(test_name, "actual data length doesn't match expected data length");
+
+  /* Check the actual data against the expected data */
+  if ((event_ptr->data == NULL || data == NULL)) {
+    if (event_ptr->data != data)
+      fail_parser(test_name, "actual data doesn't match expected data");
+  }
+
 }
 
-int DFRobot_CSV::readCSV(const char *fileName, void *des)
+template <class T>
+String DFRobot_CSV<T>::readItem(uint16_t row, uint16_t field)
 {
     uint32_t size;
+	String des;
 	pos = 0;
     void  *outFile;
     uint32_t pt = 0;
 	uint8_t readBuf[512] = {0};
-    SD.begin(32);
-    myFile = SD.open(fileName);
-    size = myFile.size();
+    size = _file->size();
     while(size) {
         uint16_t temp;
         if(size>512) temp = 512;
         else temp = size;
-        myFile.read(readBuf,temp);
+        _file->read(readBuf,temp);
         if(csv_parse(&_p,readBuf,temp,cbReadAfterField,cbReadAfterRow,des)!=temp) {
-          myFile.close();
+          _file->close();
 		  return -1;
 		}
-        myFile.seek(pt+=temp);
+        _file->seek(pt+=temp);
         size -= temp;
     }
     csv_fini(&_p,cbAftFieldWriFile,cbAftRowWriFile,outFile);   
     // close the file:
-    myFile.close();
 //	csv_free(&_p);
-	return 0;
+	return des;
 }
 
 static struct {
@@ -268,9 +242,9 @@ static void cbAftRowCount(int c, void *readPar)
 	}
 }
 
-int DFRobot_CSV::readRow(const char *fileName, uint16_t row, void *des)
+template <class T>
+String DFRobot_CSV<T>::readRow(uint16_t row)
 {
-	File myFile;
 	uint32_t size;
     void  *outFile;
     uint32_t pt = 0;
@@ -278,26 +252,24 @@ int DFRobot_CSV::readRow(const char *fileName, uint16_t row, void *des)
 	memset(&countForReadRow,0,sizeof(countForReadRow));
 	readPar.des = des;
 	readPar.row = row;
-	myFile = SD.open(fileName);
-	size = myFile.size();
+	size = _file->size();
 	while(!countForReadRow.end && size) {
 		uint16_t temp;
         if(size>512) temp = 512;
         else temp = size;
-        myFile.read(readBuf,temp);
-        if(csv_parse(&_p,readBuf,temp,cbReadRow,cbAftRowCount,(void *)&readPar)!=temp) {
-          myFile.close();
+        _file->read(readBuf,temp);
+        if(csv_parse(&_p,readBuf,temp,cbReadRow,cbAftRowCount,String des)!=temp) {
+          _file->close();
 		  return -1;
 		}
-        myFile.seek(pt+=temp);
+        _file->seek(pt+=temp);
         size -= temp;
 	}
 	csv_fini(&_p,cbAftFieldWriFile,cbAftRowWriFile,outFile);   
-    myFile.close();
 //	csv_free(&_p);
-	return 0;
+	return des;
 }
 
-DFRobot_CSV csv;
+
 
 
