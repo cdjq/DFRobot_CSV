@@ -2,7 +2,13 @@
 
 #ifndef DFRobot_CSV_H
 #define DFRobot_CSV_H
-
+#define DEC 10
+#define HEX 16
+#define OCT 8
+#ifdef BIN // Prevent warnings if BIN is previously defined in "iotnx4.h" or similar
+#undef BIN
+#endif
+#define BIN 2
 
 class DFRobot_CSV
 {
@@ -23,7 +29,7 @@ public:
       return write((const uint8_t *)buffer, size);
     }
 
-//    size_t print(const __FlashStringHelper *);
+//  size_t print(const __FlashStringHelper *);
     size_t print(const String &);
     size_t print(const char[]);
     size_t print(char);
@@ -31,10 +37,10 @@ public:
     size_t print(int, int = DEC);
     size_t print(unsigned int, int = DEC);
     size_t print(long, int = DEC);
-    size_t print(unsigned long, int = DEC);
-    size_t print(double, int = 2);
     size_t print(const Printable&);
-
+  size_t print(unsigned long, int = DEC);
+    size_t print(double, int = 2);
+  
 //  size_t println(const __FlashStringHelper *);
     size_t println(const String &s);
     size_t println(const char[]);
@@ -47,7 +53,9 @@ public:
     size_t println(double, int = 2);
 //  size_t println(const Printable&);
     size_t println(void);
-    int count(uint16_t &row, uint16_t &field);	
+	
+	template<class T1,T2>
+    int count(T1 &row, T2 &field);	
     String readRow(uint16_t row);
     String readItem(uint16_t row, uint16_t field);
 
@@ -57,12 +65,10 @@ protected:
 private:
     typedef struct csv_parser sCSVParse_t;
     sCSVParse_t _p;
-    Stream * _file;
-  
+    Stream * _file; 
     int _writeError;
     size_t printNumber(unsigned long, uint8_t);
-    size_t printFloat(double, uint8_t);
-  
+    size_t printFloat(double, uint8_t); 
     int csvFileWrite(T *fp, const void *src, size_t src_size, unsigned char quote);
 };
 

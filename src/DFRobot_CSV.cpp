@@ -69,21 +69,21 @@ size_t DFRobot_CSV::write(const uint8_t *buf, size_t size)
 size_t DFRobot_CSV::print(const String &s)
 {
   size_t t = write(s.c_str(), s.length());
-  write(",");
+  t += write(",");
   return t;
 }
 
 size_t DFRobot_CSV::print(const char str[])
 {
   size_t t = write(str);
-  write(",");
+  t += write(",");
   return t;
 }
 
 size_t DFRobot_CSV::print(char c)
 {
   size_t t = write(c);
-  write(",");
+  t+= write(",");
   return t;
 }
 
@@ -106,21 +106,23 @@ size_t DFRobot_CSV::print(long n, int base)
 {
   size_t tem;
   if (base == 0) {
-    return write(n);
+    tem = write(n);
+	tem += write(",");
+	return tem;
   } else if (base == 10) {
     if (n < 0) {
       int t = print('-');
       n = -n;
       tem = printNumber(n, 10) + t;
-	  write(",");
+	  tem += write(",");
 	  return tem;
     }
     tem = printNumber(n, 10);
-	write(",");
+	tem += write(",");
 	return tem;
   } else {
     tem = printNumber(n, base);
-	write(",");
+	tem += write(",");
 	return tem;
   }
 }
@@ -128,15 +130,15 @@ size_t DFRobot_CSV::print(long n, int base)
 size_t DFRobot_CSV::print(unsigned long n, int base)
 {
   size_t t;
-  if (base == 0) {t = write(n);write(",");return t;}
-  else {t =  printNumber(n, base);write(",");return t;}
+  if (base == 0) {t = write(n);t += write(",");return t;}
+  else {t =  printNumber(n, base);t += write(",");return t;}
 }
 
 size_t DFRobot_CSV::print(double n, int digits)
 {
   size_t t;
   t = printFloat(n, digits);
-  write(",");
+  t += write(",");
   return t;
 }
 
@@ -147,58 +149,70 @@ size_t DFRobot_CSV::println(void)
 
 size_t DFRobot_CSV::println(const String &s)
 {
-  size_t n = print(s);
+  size_t n = write(s.c_str(), s.length());
   n += println();
   return n;
 }
 
 size_t DFRobot_CSV::println(const char c[])
 {
-  size_t n = print(c);
+  size_t n = write(c);
   n += println();
   return n;
 }
 
 size_t DFRobot_CSV::println(char c)
 {
-  size_t n = print(c);
+  size_t n = write(c);
   n += println();
   return n;
 }
 
 size_t DFRobot_CSV::println(unsigned char b, int base)
 {
-  size_t n = print(b, base);
-  n += println();
-  return n;
+  return println((unsigned long) b, base);
 }
 
 size_t DFRobot_CSV::println(int num, int base)
 {
-  size_t n = print(num, base);
-  n += println();
-  return n;
+  return println((long) num, base);
 }
 
 size_t DFRobot_CSV::println(unsigned int num, int base)
 {
-  size_t n = print(num, base);
-  n += println();
-  return n;
+  return println((unsigned long) num, base);
 }
 
 size_t DFRobot_CSV::println(long num, int base)
 {
-  size_t n = print(num, base);
-  n += println();
-  return n;
+  size_t tem;
+  if (base == 0) {
+    tem = write(n);
+	tem += write("\r\n");
+	return tem;
+  } else if (base == 10) {
+    if (n < 0) {
+      int t = print('-');
+      n = -n;
+      tem = printNumber(n, 10) + t;
+	  tem += write("\r\n");
+	  return tem;
+    }
+    tem = printNumber(n, 10);
+	tem += write("\r\n");
+	return tem;
+  } else {
+    tem = printNumber(n, base);
+	tem += write("\r\n");
+	return tem;
+  }
 }
 
 size_t DFRobot_CSV::println(unsigned long num, int base)
 {
-  size_t n = print(num, base);
-  n += println();
-  return n;
+  size_t t;
+  if (base == 0) {t = write(n);t += write("\r\n");return t;}
+  else {t =  printNumber(n, base);t += write("\r\n");return t;}
 }
 
 size_t DFRobot_CSV::println(double num, int digits)
@@ -208,12 +222,6 @@ size_t DFRobot_CSV::println(double num, int digits)
   return n;
 }
 
-size_t DFRobot_CSV::println(const Printable& x)
-{
-  size_t n = print(x);
-  n += println();
-  return n;
-}
 
 // Private Methods /////////////////////////////////////////////////////////////
 
@@ -249,7 +257,7 @@ size_t DFRobot_CSV::printFloat(double number, uint8_t digits)
   // Handle negative numbers
   if (number < 0.0)
   {
-     n += print('-');
+     n += write('-');
      number = -number;
   }
 
@@ -263,11 +271,11 @@ size_t DFRobot_CSV::printFloat(double number, uint8_t digits)
   // Extract the integer part of the number and print it
   unsigned long int_part = (unsigned long)number;
   double remainder = number - (double)int_part;
-  n += print(int_part);
+  n += printNumber(int_part,DEC);
 
-  // DFRobot_CSV the decimal point, but only if there are digits beyond
+  // Print the decimal point, but only if there are digits beyond
   if (digits > 0) {
-    n += print('.'); 
+    n += write('.'); 
   }
 
   // Extract digits from the remainder one at a time
@@ -275,7 +283,7 @@ size_t DFRobot_CSV::printFloat(double number, uint8_t digits)
   {
     remainder *= 10.0;
     unsigned int toPrint = (unsigned int)(remainder);
-    n += print(toPrint);
+    n += printNumber(n, DEC);
     remainder -= toPrint; 
   } 
   
@@ -283,8 +291,8 @@ size_t DFRobot_CSV::printFloat(double number, uint8_t digits)
 }
 
 struct counts {
-long unsigned fields;
-uint rows;
+size_t fields;
+size_t rows;
 };
 
 static void cbAftFieldCountField (void *s, size_t len, void *data) 
@@ -296,8 +304,8 @@ static void cbAftRowCountRow (int c, void *data)
 ((struct counts *)data)->rows++; 
 }
 
-
-int DFRobot_CSV::count(uint16_t &row, uint16_t &field)
+template<class T1,T2>
+int DFRobot_CSV::count(T1 &row, T2 &field)
 {
   struct counts c = {0};  
   uint8_t readBuf[512] = {0};
@@ -321,7 +329,7 @@ int DFRobot_CSV::count(uint16_t &row, uint16_t &field)
     // close the file:
  //   Serial.print("fields: ");Serial.println(c.fields);
  //   Serial.print("rows: ");Serial.println(c.rows);
-    field = c.fields;
+    field = c.fields/c.rows;
 	row = c.rows;
 //    csv_free(&_p);
 //    Serial.println("okkkkkkkkkkkkkkkk");
