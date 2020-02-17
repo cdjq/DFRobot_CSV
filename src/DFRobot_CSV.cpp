@@ -1,21 +1,21 @@
 #include <DFRobot_CSV.h>
 
 template <class T>
-DFRobot_CSV<T>::DFRobot_CSV(T &file)
+DFRobot_CSV::DFRobot_CSV(T &file)
 {
 	csv_init(&_p,0);
 	_file = &file;
+	_writeError = 0;
 }
 
-template <class T>
-DFRobot_CSV<T>::~DFRobot_CSV()
+DFRobot_CSV::~DFRobot_CSV()
 {
 	if(_p->entry_buf)
 		_p->free_func(_p->entry_buf);
 }
 
-template <class T>
-int DFRobot_CSV<T>::csvFileWrite(T *fp, const void *src, size_t src_size, unsigned char quote)
+
+int DFRobot_CSV::csvFileWrite(T *fp, const void *src, size_t src_size, unsigned char quote)
 {
   const unsigned char *csrc = (const unsigned char *)src;
 
@@ -55,18 +55,231 @@ static void cbWriteLine (int c, void *)
   _file->write("\n");
 }
 
-template <class T>
-size_t DFRobot_CSV<T>::write(uint8_t val)
+
+size_t DFRobot_CSV::write(uint8_t val)
 {
   return write(&val, 1);
 }
 
-template <class T>
-size_t DFRobot_CSV<T>::write(const uint8_t *buf, size_t size)
+size_t DFRobot_CSV::write(const uint8_t *buf, size_t size)
+{
+  return _file->write(buf,size);
+}
+
+size_t DFRobot_CSV::print(const String &s)
+{
+  size_t t = write(s.c_str(), s.length());
+  write(",");
+  return t;
+}
+
+size_t DFRobot_CSV::print(const char str[])
+{
+  size_t t = write(str);
+  write(",");
+  return t;
+}
+
+size_t DFRobot_CSV::print(char c)
+{
+  size_t t = write(c);
+  write(",");
+  return t;
+}
+
+size_t DFRobot_CSV::print(unsigned char b, int base)
+{
+  return print((unsigned long) b, base);
+}
+
+size_t DFRobot_CSV::print(int n, int base)
+{
+  return print((long) n, base);
+}
+
+size_t DFRobot_CSV::print(unsigned int n, int base)
+{
+  return print((unsigned long) n, base);
+}
+
+size_t DFRobot_CSV::print(long n, int base)
+{
+  size_t tem;
+  if (base == 0) {
+    return write(n);
+  } else if (base == 10) {
+    if (n < 0) {
+      int t = print('-');
+      n = -n;
+      tem = printNumber(n, 10) + t;
+	  write(",");
+	  return tem;
+    }
+    tem = printNumber(n, 10);
+	write(",");
+	return tem;
+  } else {
+    tem = printNumber(n, base);
+	write(",");
+	return tem;
+  }
+}
+
+size_t DFRobot_CSV::print(unsigned long n, int base)
 {
   size_t t;
-  csv_parse(&_p,buf,size,cbWrite,cbWriteLine,NULL);
+  if (base == 0) {t = write(n);write(",");return t;}
+  else {t =  printNumber(n, base);write(",");return t;}
+}
+
+size_t DFRobot_CSV::print(double n, int digits)
+{
+  size_t t;
+  t = printFloat(n, digits);
+  write(",");
   return t;
+}
+
+size_t DFRobot_CSV::println(void)
+{
+  return write("\r\n");
+}
+
+size_t DFRobot_CSV::println(const String &s)
+{
+  size_t n = print(s);
+  n += println();
+  return n;
+}
+
+size_t DFRobot_CSV::println(const char c[])
+{
+  size_t n = print(c);
+  n += println();
+  return n;
+}
+
+size_t DFRobot_CSV::println(char c)
+{
+  size_t n = print(c);
+  n += println();
+  return n;
+}
+
+size_t DFRobot_CSV::println(unsigned char b, int base)
+{
+  size_t n = print(b, base);
+  n += println();
+  return n;
+}
+
+size_t DFRobot_CSV::println(int num, int base)
+{
+  size_t n = print(num, base);
+  n += println();
+  return n;
+}
+
+size_t DFRobot_CSV::println(unsigned int num, int base)
+{
+  size_t n = print(num, base);
+  n += println();
+  return n;
+}
+
+size_t DFRobot_CSV::println(long num, int base)
+{
+  size_t n = print(num, base);
+  n += println();
+  return n;
+}
+
+size_t DFRobot_CSV::println(unsigned long num, int base)
+{
+  size_t n = print(num, base);
+  n += println();
+  return n;
+}
+
+size_t DFRobot_CSV::println(double num, int digits)
+{
+  size_t n = print(num, digits);
+  n += println();
+  return n;
+}
+
+size_t DFRobot_CSV::println(const Printable& x)
+{
+  size_t n = print(x);
+  n += println();
+  return n;
+}
+
+// Private Methods /////////////////////////////////////////////////////////////
+
+size_t DFRobot_CSV::printNumber(unsigned long n, uint8_t base)
+{
+  char buf[8 * sizeof(long) + 1]; // Assumes 8-bit chars plus zero byte.
+  char *str = &buf[sizeof(buf) - 1];
+
+  *str = '\0';
+
+  // prevent crash if called with base == 1
+  if (base < 2) base = 10;
+
+  do {
+    char c = n % base;
+    n /= base;
+
+    *--str = c < 10 ? c + '0' : c + 'A' - 10;
+  } while(n);
+
+  return write(str);
+}
+
+size_t DFRobot_CSV::printFloat(double number, uint8_t digits) 
+{ 
+  size_t n = 0;
+  
+  if (isnan(number)) return print("nan");
+  if (isinf(number)) return print("inf");
+  if (number > 4294967040.0) return print ("ovf");  // constant determined empirically
+  if (number <-4294967040.0) return print ("ovf");  // constant determined empirically
+  
+  // Handle negative numbers
+  if (number < 0.0)
+  {
+     n += print('-');
+     number = -number;
+  }
+
+  // Round correctly so that print(1.999, 2) prints as "2.00"
+  double rounding = 0.5;
+  for (uint8_t i=0; i<digits; ++i)
+    rounding /= 10.0;
+  
+  number += rounding;
+
+  // Extract the integer part of the number and print it
+  unsigned long int_part = (unsigned long)number;
+  double remainder = number - (double)int_part;
+  n += print(int_part);
+
+  // DFRobot_CSV the decimal point, but only if there are digits beyond
+  if (digits > 0) {
+    n += print('.'); 
+  }
+
+  // Extract digits from the remainder one at a time
+  while (digits-- > 0)
+  {
+    remainder *= 10.0;
+    unsigned int toPrint = (unsigned int)(remainder);
+    n += print(toPrint);
+    remainder -= toPrint; 
+  } 
+  
+  return n;
 }
 
 struct counts {
@@ -83,32 +296,26 @@ static void cbAftRowCountRow (int c, void *data)
 ((struct counts *)data)->rows++; 
 }
 
-template <class T>
-int DFRobot_CSV<T>::count(uint16_t &row, uint16_t &field)
+
+int DFRobot_CSV::count(uint16_t &row, uint16_t &field)
 {
-  struct counts c = {0};
-  uint32_t size;   
+  struct counts c = {0};  
   uint8_t readBuf[512] = {0};
     // read from the file until there's nothing else in it:
     while (_file->available()) {
       Serial.write(_file->read());
     }
    _file->seek(0);
-   size = _file->size();
-//   Serial.print("a3.txt: Size="); Serial.println(size);
    csv_init(&_p,0);
-   while(size) {
+   while(_file->available()) {
       uint16_t temp;
-      if(size>512) temp = 512;
-      else temp = size;
-      _file->read(readBuf,temp);
+      temp = _file->read(readBuf,512);
       for(uint8_t i=0;i<20;i++)
       Serial.write(readBuf[i]);Serial.println();
       if(csv_parse(&_p,readBuf,temp,cbAftFieldCountField,cbAftRowCountRow,&c)!=temp) {
         _file->close();
 		return -1;
 	  }
-      size -= temp;
     }
     csv_fini(&_p,cbAftFieldCountField,cbAftRowCountRow,&c);     
     // close the file:
@@ -121,37 +328,6 @@ int DFRobot_CSV<T>::count(uint16_t &row, uint16_t &field)
 	return 0;
 }
 
-
-static void cbWriteField (void *s, size_t i, void *outFile) {
-  csv_fwrite((File *)outFile, s, i);
-  ((File *)outFile)->write(",");
-}
-
-static void writeLine (int c, void *outFile) {
-  ((File *)outFile)->seek(((File *)outFile)->position()-1);
-  ((File *)outFile)->write("\n");
-}
-
-template <class T>
-int DFRobot_CSV<T>::writeCSV(const char *fileName, const char *csv) 
-{
-    size_t i;
-    uint16_t size;
-    void  *outFile;
-	File myFile;
-    uint16_t pt = 0;
-    outFile = (void *)&myFile;
-    size = strlen(csv);
-    if(csv_parse(&_p,csv,size,cbWriteField,cbWriteLine,outFile)!=size) {
-		_file->close();
-		return -1;
-    }
-    csv_fini(&_p,cb1,cb2,outFile);   
-    // close the file:
-    _file->close();
-//    csv_free(&_p);
-	return 0;
-}
 
 static size_t pos;
 
@@ -182,31 +358,24 @@ static void cbReadAfterRow(int c, void *des) {
 
 }
 
-template <class T>
-String DFRobot_CSV<T>::readItem(uint16_t row, uint16_t field)
+
+String DFRobot_CSV::readItem(uint16_t row, uint16_t field)
 {
-    uint32_t size;
 	String des;
 	pos = 0;
     void  *outFile;
     uint32_t pt = 0;
 	uint8_t readBuf[512] = {0};
-    size = _file->size();
-    while(size) {
-        uint16_t temp;
-        if(size>512) temp = 512;
-        else temp = size;
-        _file->read(readBuf,temp);
+    while(_file->available()) {
+		uint16_t temp;
+        temp = _file->read(readBuf,512);
         if(csv_parse(&_p,readBuf,temp,cbReadAfterField,cbReadAfterRow,des)!=temp) {
           _file->close();
 		  return -1;
 		}
-        _file->seek(pt+=temp);
-        size -= temp;
     }
     csv_fini(&_p,cbAftFieldWriFile,cbAftRowWriFile,outFile);   
-    // close the file:
-//	csv_free(&_p);
+    csv_free(&_p);
 	return des;
 }
 
@@ -240,28 +409,22 @@ static void cbAftRowCount(int c, void *readPar)
 	}
 }
 
-template <class T>
-String DFRobot_CSV<T>::readRow(uint16_t row)
+
+String DFRobot_CSV::readRow(uint16_t row)
 {
-	uint32_t size;
     void  *outFile;
     uint32_t pt = 0;
 	uint8_t readBuf[512] = {0};
 	memset(&countForReadRow,0,sizeof(countForReadRow));
 	readPar.des = des;
 	readPar.row = row;
-	size = _file->size();
-	while(!countForReadRow.end && size) {
-		uint16_t temp;
-        if(size>512) temp = 512;
-        else temp = size;
-        _file->read(readBuf,temp);
+	while(!countForReadRow.end && _file->available()) {
+		uint16_t tem;
+        tem = _file->read(readBuf,512);
         if(csv_parse(&_p,readBuf,temp,cbReadRow,cbAftRowCount,String des)!=temp) {
           _file->close();
 		  return -1;
 		}
-        _file->seek(pt+=temp);
-        size -= temp;
 	}
 	csv_fini(&_p,cbAftFieldWriFile,cbAftRowWriFile,outFile);   
 //	csv_free(&_p);
