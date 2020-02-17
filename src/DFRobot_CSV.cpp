@@ -304,7 +304,7 @@ static void cbAftRowCountRow (int c, void *data)
 ((struct counts *)data)->rows++; 
 }
 
-template<class T1,T2>
+template<class T1, T2>
 int DFRobot_CSV::count(T1 &row, T2 &field)
 {
   struct counts c = {0};  
@@ -366,8 +366,8 @@ static void cbReadAfterRow(int c, void *des) {
 
 }
 
-
-String DFRobot_CSV::readItem(uint16_t row, uint16_t field)
+template <typename T1, T2>
+String DFRobot_CSV::readItem(T1 row, T2 field)
 {
 	String des;
 	pos = 0;
@@ -389,14 +389,14 @@ String DFRobot_CSV::readItem(uint16_t row, uint16_t field)
 
 static struct {
   bool flag;
-  uint16_t positon;
-  uint16_t row;
+  size_t positon;
+  size_t row;
   bool end;
 } countForReadRow;
 
 static struct readPa{
 	void *des;
-	uint16_t row;
+	size_t row;
 } readPar;
 
 static void cbReadRow(void *s, size_t i, void *readPar)
@@ -417,8 +417,8 @@ static void cbAftRowCount(int c, void *readPar)
 	}
 }
 
-
-String DFRobot_CSV::readRow(uint16_t row)
+template <typename T>
+String DFRobot_CSV::readRow(T row)
 {
     void  *outFile;
     uint32_t pt = 0;
@@ -435,7 +435,7 @@ String DFRobot_CSV::readRow(uint16_t row)
 		}
 	}
 	csv_fini(&_p,cbAftFieldWriFile,cbAftRowWriFile,outFile);   
-//	csv_free(&_p);
+	csv_free(&_p);
 	return des;
 }
 

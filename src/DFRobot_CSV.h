@@ -13,7 +13,7 @@
 class DFRobot_CSV
 {
 public:
-    template<class T>
+    template <class T>
     DFRobot_CSV(T &file);
     ~DFRobot_CSV(); 
 
@@ -54,10 +54,12 @@ public:
 //  size_t println(const Printable&);
     size_t println(void);
 	
-	template<class T1,T2>
-    int count(T1 &row, T2 &field);	
-    String readRow(uint16_t row);
-    String readItem(uint16_t row, uint16_t field);
+	template <typename T1, T2>
+    int count(T1 &row, T2 &field);
+	template <typename T>
+    String readRow(T row);
+	template <typename T1, T2>
+    String readItem(T1 row, T2 field);
 
 protected:
     void setWriteError(int err = 1) { _writeError = err; }
