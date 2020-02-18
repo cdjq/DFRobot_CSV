@@ -309,15 +309,14 @@ int DFRobot_CSV::count(T1 &row, T2 &field)
 {
   struct counts c = {0};  
   uint8_t readBuf[512] = {0};
+  uint16_t temp;
     // read from the file until there's nothing else in it:
     while (_file->available()) {
       Serial.write(_file->read());
     }
    _file->seek(0);
    csv_init(&_p,0);
-   while(_file->available()) {
-      uint16_t temp;
-      temp = _file->read(readBuf,512);
+   while((temp =_file->read(readBuf, 512)) > 0) {
       for(uint8_t i=0;i<20;i++)
       Serial.write(readBuf[i]);Serial.println();
       if(csv_parse(&_p,readBuf,temp,cbAftFieldCountField,cbAftRowCountRow,&c)!=temp) {
@@ -336,107 +335,111 @@ int DFRobot_CSV::count(T1 &row, T2 &field)
 	return 0;
 }
 
+typedef struct plist{
+	string pt;
+	struct plist *ppt;
+} sp_t;
 
-static size_t pos;
+static struct {
+  size_t list;
+  size_t row;
+} flags;
 
-static void cbReadAfterField(void *s, size_t i, void *des) {
-  size_t j;
-  for(j=0;j<i;j++)
-	  *((char *)des + pos +j) = *((char *)s+j);
-  pos += j;
-  *((char *)des + pos) = CSV_COMMA;
-  pos ++;
+typedef struct{
+	sp_t *point;
+	size_t row;
+	size_t list;
+} sRead_t;
+
+static void cbAfterFieldCount(void *s, size_t i, void *data) {
+    if(flags.row == (*(sRead_t *)data).row - 1) {
+	    flags.list++;
+		if(flags.list == (*(sRead_t *)data).list - 1) {
+		    char arr[i+1];
+		    for(int j=0;j<i;j++)
+			    char arr[j] = *((char*)s+j);
+		    arr[i] = 0;
+		    String string(arr);
+		    void *p = calloc(1,sizeof(sp_t));
+		    memcpy(*p,&string,sizeof(string));
+			(*(sRead_t *)data).point = (sp_t *)p;
+		}
+    }
 }
 
-static void cbReadAfterRow(int c, void *des) {
-  pos--;
-  *((char *)des + pos) = CSV_LF;
-    if (event_ptr->event_type != CSV_COL)
-    fail_parser(test_name, "didn't expect a column");
-
-  /* Check the actual size against the expected size */
-  if (event_ptr->size != len)
-    fail_parser(test_name, "actual data length doesn't match expected data length");
-
-  /* Check the actual data against the expected data */
-  if ((event_ptr->data == NULL || data == NULL)) {
-    if (event_ptr->data != data)
-      fail_parser(test_name, "actual data doesn't match expected data");
-  }
-
+static void cbAftRowCount(int c, void *data)
+{
+	flags.row++;
 }
 
 template <typename T1, T2>
-String DFRobot_CSV::readItem(T1 row, T2 field)
+String DFRobot_CSV::readItem(T1 row, T2 list)
 {
-	String des;
-	pos = 0;
-    void  *outFile;
-    uint32_t pt = 0;
+	sRead_t data = {0,row,list};  
 	uint8_t readBuf[512] = {0};
-    while(_file->available()) {
-		uint16_t temp;
-        temp = _file->read(readBuf,512);
-        if(csv_parse(&_p,readBuf,temp,cbReadAfterField,cbReadAfterRow,des)!=temp) {
+	uint16_t temp;
+	String str;
+	memset(&flags,0,sizeof(flags));
+	sRead_t data = {0,row,list};
+    while((flags.row < row) && (temp =_file->read(readBuf, 512))) {
+        if(csv_parse(&_p,readBuf,temp,cbAfterFieldCount,cbAfterRowCount,&data)!=temp) {
           _file->close();
 		  return -1;
 		}
     }
-    csv_fini(&_p,cbAftFieldWriFile,cbAftRowWriFile,outFile);   
+    csv_fini(&_p,cbAftFieldWriFile,cbAftRowWriFile,outFile);
+	str = (*(*(sRead_t *)data).point).pt;
     csv_free(&_p);
-	return des;
+	return str;
 }
 
-static struct {
-  bool flag;
-  size_t positon;
-  size_t row;
-  bool end;
-} countForReadRow;
-
-static struct readPa{
-	void *des;
-	size_t row;
-} readPar;
-
-static void cbReadRow(void *s, size_t i, void *readPar)
-{
-	if(flag || (readPa)readPar.row == 1) {
-		for(uint8_t j=0;j<i;j++)
-			*((uint8_t *)((readPa)readPar.des) + countForReadRow.positon + j) = *((uint8_t *)s + j);
-		countForReadRow.positon += i;
+static void cbReadRow(void *s, size_t i, void *data)
+{   
+	if(flags.row == (*(sRead_t *)data).row-1) {
+		char arr[i+1];
+		for(int j=0;j<i;j++)
+			char arr[j] = *((char*)s+j);
+		arr[i] = 0;
+		String string(arr);
+		void *p = calloc(1,sizeof(sp_t));
+		memcpy(*p,&string,sizeof(string));
+        if((sRead_t)data.point) {
+			struct plist *plast = (sRead_t)data.point;
+			while((*plast).ppt) {
+				plast = (*plast).ppt;
+			}
+			(*plast).ppt = (sp_t *)p;
+		}else {
+			(sRead_t)data.point = (sp_t*)p;
+		}
 	}
 }
 
-static void cbAftRowCount(int c, void *readPar)
-{
-	countForReadRow.row++;
-	if (countForReadRow.row == (readPa)readPar.row - 1) countForReadRow.flag = 1;
-	else if (countForReadRow.row == (readPa)readPar.row) {
-		countForReadRow.flag = 0;countForReadRow.end = 1;
-	}
-}
 
 template <typename T>
 String DFRobot_CSV::readRow(T row)
 {
-    void  *outFile;
-    uint32_t pt = 0;
 	uint8_t readBuf[512] = {0};
-	memset(&countForReadRow,0,sizeof(countForReadRow));
-	readPar.des = des;
-	readPar.row = row;
-	while(!countForReadRow.end && _file->available()) {
-		uint16_t tem;
-        tem = _file->read(readBuf,512);
-        if(csv_parse(&_p,readBuf,temp,cbReadRow,cbAftRowCount,String des)!=temp) {
+	uint16_t temp;
+	String str;
+	sRead_t data = {0,row};
+	memset(&flags,0,sizeof(flags));
+	while((flags.row < row) && (temp = _file->read(readBuf, 512))) {
+        if(csv_parse(&_p, readBuf, temp, cbReadRow, cbAftRowCount, &data) != temp) {
           _file->close();
 		  return -1;
 		}
 	}
-	csv_fini(&_p,cbAftFieldWriFile,cbAftRowWriFile,outFile);   
+	csv_fini(&_p, cbAftFieldWriFile, cbAftRowWriFile, &data);
+	if(data.point) {
+		sp_t *plast = data.point;
+		do {
+			str += (*plast).pt;
+		    plast = (*plast).ppt;
+		   }while(plast);	
+	}
 	csv_free(&_p);
-	return des;
+	return str;
 }
 
 

@@ -38,7 +38,7 @@ public:
     size_t print(unsigned int, int = DEC);
     size_t print(long, int = DEC);
     size_t print(const Printable&);
-  size_t print(unsigned long, int = DEC);
+    size_t print(unsigned long, int = DEC);
     size_t print(double, int = 2);
   
 //  size_t println(const __FlashStringHelper *);
@@ -59,7 +59,7 @@ public:
 	template <typename T>
     String readRow(T row);
 	template <typename T1, T2>
-    String readItem(T1 row, T2 field);
+    String readItem(T1 row, T2 list);
 
 protected:
     void setWriteError(int err = 1) { _writeError = err; }
