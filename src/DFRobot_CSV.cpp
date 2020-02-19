@@ -389,6 +389,9 @@ String DFRobot_CSV::readItem(T1 row, T2 list)
     }
     csv_fini(&_p,cbAftFieldWriFile,cbAftRowWriFile,outFile);
 	str = (*(*(sRead_t *)data).point).pt;
+	free(data.point.pt.c_str());
+	free(data.point);
+	data.point = NULL;
     csv_free(&_p);
 	return str;
 }
@@ -404,7 +407,7 @@ static void cbReadRow(void *s, size_t i, void *data)
 		void *p = calloc(1,sizeof(sp_t));
 		memcpy(*p,&string,sizeof(string));
         if((sRead_t)data.point) {
-			struct plist *plast = (sRead_t)data.point;
+			sp_t *plast = (sRead_t)data.point;
 			while((*plast).ppt) {
 				plast = (*plast).ppt;
 			}
@@ -437,6 +440,15 @@ String DFRobot_CSV::readRow(T row)
 			str += (*plast).pt;
 		    plast = (*plast).ppt;
 		   }while(plast);	
+	}
+	while(data.point) {
+		sp_t *plast = data.point;
+		while((*plast).ppt) {
+			plast = (*plast).ppt;
+		}
+		free((*plast).pt.c_str());
+		free(plast);
+		plast = NULL;
 	}
 	csv_free(&_p);
 	return str;
