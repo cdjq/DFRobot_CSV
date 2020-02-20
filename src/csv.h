@@ -2,7 +2,7 @@
 #define LIBCSV_H__
 #include <stdlib.h>
 #include <stdio.h>
-#include <UD.h>
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -66,9 +66,9 @@ int csv_error(const struct csv_parser *p);
 const char * csv_strerror(int error);
 size_t csv_parse(struct csv_parser *p, const void *s, size_t len, void (*cb1)(void *, size_t, void *), void (*cb2)(int, void *), void *data);
 size_t csv_write(void *dest, size_t dest_size, const void *src, size_t src_size);
-int csv_fwrite(File *fp, const void *src, size_t src_size);
+//int csv_fwrite(File *fp, const void *src, size_t src_size);
 size_t csv_write2(void *dest, size_t dest_size, const void *src, size_t src_size, unsigned char quote);
-int csv_fwrite2(File *fp, const void *src, size_t src_size, unsigned char quote);
+//int csv_fwrite2(File *fp, const void *src, size_t src_size, unsigned char quote);
 int csv_get_opts(const struct csv_parser *p);
 int csv_set_opts(struct csv_parser *p, unsigned char options);
 void csv_set_delim(struct csv_parser *p, unsigned char c);
