@@ -136,11 +136,9 @@ typedef struct{
 } sRead_t;
 
 static void cbAftFieldCount(void *s, size_t i, void *data) {
-Serial.print("cbAftFieldCount flags.row: ");Serial.println(flags.row);
-Serial.print("cbAftField Countflags.list: ");Serial.println(flags.list);
     if(flags.row == (*(sRead_t *)data).row - 1) {
 	    flags.list++;
-		if(flags.list == (*(sRead_t *)data).list - 1) {
+		if(flags.list == (*(sRead_t *)data).list) {
 		    char arr[i+1];
 		    for(int j=0;j<i;j++)
 			    arr[j] = *((char*)s+j);
@@ -156,7 +154,6 @@ Serial.print("cbAftField Countflags.list: ");Serial.println(flags.list);
 static void cbAftRowCount(int c, void *data)
 {
 	flags.row++;
-	Serial.print("cbAftRowCountflags.row: ");Serial.println(flags.row);
 }
 
 template <typename T1, typename T2>
@@ -167,6 +164,7 @@ String DFRobot_CSV::readItem(T1 row, T2 list)
 	uint16_t temp;
 	String str;
 	memset(&flags,0,sizeof(flags));
+	_file->seek(0);
     while((flags.row < row) && (temp =_file->read(readBuf, 512))) {
         if(csv_parse(&_p,readBuf,temp,cbAftFieldCount,cbAftRowCount,&data)!=temp) {
           _file->close();
@@ -203,23 +201,14 @@ static void cbReadRow(void *s, size_t i, void *data)
 		strcpy(buffer, arr);*/
 
 //		memcpy(p,&string,sizeof(string));
-		Serial.print("p.string=");Serial.println(((sp_t *)p)->pt);
-		Serial.println(__LINE__);
         if(((sRead_t *)data)->point) {
-			Serial.println(__LINE__);
 			sp_t *plast = ((sRead_t *)data)->point;
-			Serial.println(__LINE__);
 			while((*plast).ppt) {
 				plast = (*plast).ppt;
-				Serial.println(__LINE__);
 			}
 			(*plast).ppt = (sp_t *)p;
-			Serial.println(__LINE__);
 		}else {
 			((sRead_t *)data)->point = (sp_t*)p;
-			Serial.print("((sRead_t *)data)->point");Serial.println((int)(((sRead_t *)data)->point));
-			Serial.print("point.string=");Serial.println((((sRead_t *)data)->point)->pt);
-			Serial.println(__LINE__);
 		}
 	}
 }
@@ -232,44 +221,28 @@ String DFRobot_CSV::readRow(T row)
 	uint8_t readBuf[512] = {0};
 	uint16_t temp;
 	String str;
-	Serial.print("str");Serial.println(str);
 	sRead_t data = {0,row};
 	memset(&flags,0,sizeof(flags));
-	Serial.print("flags.row:");Serial.println(flags.row);
-	Serial.print("flags.list");Serial.println(flags.list);
-	Serial.println(__LINE__);
-	Serial.print("flags.row:");Serial.println(row);
+	_file->seek(0);
 	while((flags.row < row) && (temp = _file->read(readBuf, 512))) {
-		Serial.print("temp");Serial.println(temp);
         if(csv_parse(&_p, readBuf, temp, cbReadRow, cbAftRowCount, &data) != temp) {
           _file->close();
 		  return String();
 		}
 	}
-	Serial.print("temp");Serial.println(temp);
-	Serial.println(__LINE__);
 	csv_fini(&_p, cbReadRow, cbAftRowCount, &data);
-	Serial.println(__LINE__);
 	if(data.point) {
 		plast = data.point;
-		Serial.print("*********point.string=");Serial.println(plast->pt);
 		do {
-			Serial.println(__LINE__);
-			Serial.print("------plast");Serial.println((int)plast);
-			
-			Serial.print("plast.pt");Serial.println((*plast).pt);
 			str += (*plast).pt;
 		    plast = (*plast).ppt;
 			if(plast)
 			    str += String(',');
 		   }while(plast);	
 	}
-	Serial.println(__LINE__);
 	while(data.point) {
 		pll = plast = data.point;
-		Serial.println(__LINE__);
 		while((*plast).ppt) {
-			Serial.println(__LINE__);
 			pll = plast;
 			plast = (*plast).ppt;
 		}
@@ -279,7 +252,6 @@ String DFRobot_CSV::readRow(T row)
 		if(plast == data.point)
 			data.point = NULL;
 	}
-	Serial.print("str");Serial.println(str);
 //	csv_free(&_p);
 	return str;
 }

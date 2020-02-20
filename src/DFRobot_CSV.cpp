@@ -33,7 +33,9 @@ size_t DFRobot_CSV::write(const uint8_t *buf, size_t size)
 
 size_t DFRobot_CSV::print(const String &s)
 {
-  size_t t = write(s.c_str(), s.length());
+  size_t t = 0;
+  for(int i =0;i<s.len();i++)
+  t += write(s.c_str(), s.length());
   t += write(",");
   return t;
 }
